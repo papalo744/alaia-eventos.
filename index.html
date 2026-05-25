@@ -49,7 +49,7 @@
         <div id="alertaConfig" class="hidden bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-6 rounded-r-lg shadow-sm">
             <div class="flex items-start">
                 <i class="fas fa-exclamation-triangle text-xl mr-3 mt-0.5"></i>
-                <div>
+                <div id="alertaMensaje">
                     <h3 class="font-bold text-lg">Falta configurar la Base de Datos</h3>
                     <p class="text-sm mt-1">La aplicación no puede guardar datos porque faltan las claves de Firebase. Por favor, edita el archivo <code class="bg-red-200 px-1 rounded">index.html</code> en GitHub y reemplaza los textos <strong>"PEGA_AQUI..."</strong> con las llaves que te da Google Firebase.</p>
                 </div>
@@ -159,15 +159,15 @@
 
         // =======================================================================================
         // 🛑🛑 ¡AQUÍ VAN TUS LLAVES DE FIREBASE! 🛑🛑
-        // Reemplaza los textos que dicen "PEGA_AQUI..." con las llaves que te da Google Firebase
         // =======================================================================================
         const misClavesDeFirebase = {
-              apiKey: "AIzaSyCFs5r-ddfnwm70GLrF2b2lhVAtWzd52ik",
-  authDomain: "alaia-app-27691.firebaseapp.com",
-  projectId: "alaia-app-27691",
-  storageBucket: "alaia-app-27691.firebasestorage.app",
-  messagingSenderId: "419868524301",
-  appId: "1:419868524301:web:38ceff6e28b327d6867a44"
+            apiKey: "AIzaSyCFs5r-ddfnwm70GLrF2b2lhVAtWzd52ik",
+            authDomain: "alaia-app-27691.firebaseapp.com",
+            projectId: "alaia-app-27691",
+            storageBucket: "alaia-app-27691.firebasestorage.app",
+            messagingSenderId: "419868524301",
+            appId: "1:419868524301:web:38ceff6e28b327d6867a44",
+            measurementId: "G-2CYX78VBL9"
         };
         // =======================================================================================
 
@@ -185,11 +185,9 @@
         const faltaConfigurar = !isPreview && misClavesDeFirebase.apiKey === "PEGA_AQUI_TU_API_KEY";
 
         if (faltaConfigurar) {
-            // Mostrar alerta visual si no se ha configurado
             document.getElementById('loadingState').classList.add('hidden');
             document.getElementById('alertaConfig').classList.remove('hidden');
         } else {
-            // Inicializar Firebase normalmente
             try {
                 app = initializeApp(firebaseConfig);
                 auth = getAuth(app);
@@ -199,6 +197,16 @@
                 console.error("Error inicializando Firebase:", e);
                 mostrarToast("Error de conexión. Revisa tus claves.", "error");
             }
+        }
+
+        function mostrarAlertaError(titulo, mensaje) {
+            document.getElementById('loadingState').classList.add('hidden');
+            const alerta = document.getElementById('alertaConfig');
+            alerta.classList.remove('hidden');
+            document.getElementById('alertaMensaje').innerHTML = `
+                <h3 class="font-bold text-lg">${titulo}</h3>
+                <p class="text-sm mt-1">${mensaje}</p>
+            `;
         }
 
         // --- 2. AUTENTICACIÓN AUTOMÁTICA ---
@@ -212,6 +220,13 @@
                 }
             } catch (error) {
                 console.error("Error en autenticación:", error);
+                // Si la autenticación anónima no está habilitada en Firebase, mostramos esta alerta específica
+                if (error.code === 'auth/operation-not-allowed' || error.code === 'auth/admin-restricted-operation') {
+                    mostrarAlertaError(
+                        "Falta habilitar acceso Anónimo", 
+                        "Ve a tu consola de Firebase > Authentication > Sign-in method. Activa el proveedor llamado 'Anónimo' para permitir que la app guarde datos."
+                    );
+                }
             }
         }
 
@@ -245,7 +260,11 @@
                 renderizarEventos();
             }, (error) => {
                 console.error("Error obteniendo eventos:", error);
-                mostrarToast("Error al sincronizar datos", "error");
+                if (error.code === 'permission-denied') {
+                    mostrarAlertaError("Permisos denegados", "Falta configurar las 'Reglas' de Firestore para permitir leer y escribir datos.");
+                } else {
+                    mostrarToast("Error al sincronizar datos", "error");
+                }
             });
         }
 
