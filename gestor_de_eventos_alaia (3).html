@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Gestor de Eventos Alaia</title>
+    <!-- Tailwind CSS para estilos -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome para iconos -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Fuente Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        /* Ocultar barra de scroll pero mantener funcionalidad */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #c7c7cc; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #a1a1a6; 
+        }
+
+        /* Estilo iOS para inputs */
+        input, select, textarea {
+            appearance: none;
+            -webkit-appearance: none;
+        }
+    </style>
+</head>
+<body class="text-gray-800 antialiased h-screen flex flex-col overflow-hidden">
+
+    <!-- Navegación Superior -->
+    <header class="bg-indigo-600 text-white shadow-md z-10 flex-shrink-0">
+        <div class="max-w-7xl mx-auto px-4 py-3 sm:py-4 flex justify-between items-center">
+            <div class="flex items-center space-x-2">
+                <div class="bg-white/20 p-2 rounded-lg">
+                    <i class="fas fa-calendar-check text-xl"></i>
+                </div>
+                <div>
+                    <h1 class="text-lg sm:text-xl font-bold leading-tight">Alaia Eventos</h1>
+                    <p class="text-xs text-indigo-200">Gestión Local</p>
+                </div>
+            </div>
+            <div class="flex space-x-2">
+                <button id="btnExportar" class="p-2 sm:px-4 bg-indigo-500 hover:bg-indigo-400 rounded-lg transition-colors flex items-center justify-center text-white shadow-sm" title="Exportar a Excel">
+                    <i class="fas fa-file-excel sm:mr-2"></i>
+                    <span class="hidden sm:inline text-sm font-medium">Exportar</span>
+                </button>
+                <button id="btnNuevoEvento" class="p-2 sm:px-4 bg-white text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors flex items-center justify-center shadow-sm font-medium">
+                    <i class="fas fa-plus sm:mr-2"></i>
+                    <span class="hidden sm:inline text-sm">Nuevo</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Resumen de Estadísticas (Mini Dashboard) -->
+    <div class="bg-white border-b border-gray-200 flex-shrink-0 z-10 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 py-3 flex justify-between md:justify-start md:space-x-8 text-sm">
+            <div class="flex flex-col">
+                <span class="text-gray-500 text-xs uppercase font-semibold">Total Eventos</span>
+                <span id="statTotal" class="font-bold text-gray-900 text-lg">0</span>
+            </div>
+            <div class="flex flex-col">
+                <span class="text-gray-500 text-xs uppercase font-semibold">Recaudo Estimado</span>
+                <span id="statRecaudo" class="font-bold text-green-600 text-lg">$0</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Contenido Principal: Lista de Eventos -->
+    <!-- flex-1 y overflow-y-auto permite que esta área sea la que hace scroll -->
+    <main class="flex-1 overflow-y-auto p-4 w-full max-w-7xl mx-auto pb-24">
+        
+        <!-- Estado Vacío -->
+        <div id="emptyState" class="hidden h-full flex-col items-center justify-center text-center px-4 mt-10">
+            <div class="w-24 h-24 bg-indigo-50 rounded-full flex items-center justify-center mb-4">
+                <i class="fas fa-calendar-plus text-indigo-300 text-4xl"></i>
+            </div>
+            <h2 class="text-xl font-bold text-gray-700 mb-2">No tienes eventos</h2>
+            <p class="text-gray-500 max-w-sm mx-auto mb-6">Comienza a organizar tu agenda creando tu primer evento. Se guardará de forma segura en tu dispositivo.</p>
+            <button id="btnEmptyNuevo" class="bg-indigo-600 text-white px-6 py-3 rounded-xl font-medium shadow-md hover:bg-indigo-700 transition-colors flex items-center space-x-2">
+                <i class="fas fa-plus"></i>
+                <span>Crear mi primer evento</span>
+            </button>
+        </div>
+
+        <!-- Lista de Tarjetas de Eventos -->
+        <div id="eventosContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <!-- Las tarjetas se generan aquí vía JS -->
+        </div>
+
+    </main>
+
+    <!-- Botón Flotante para Móviles (Bottom Right) -->
+    <button id="btnFab" class="md:hidden fixed bottom-6 right-6 w-14 h-14 bg-indigo-600 text-white rounded-full shadow-lg flex items-center justify-center text-2xl hover:bg-indigo-700 hover:scale-105 transition-transform z-20 focus:outline-none focus:ring-4 focus:ring-indigo-300">
+        <i class="fas fa-plus"></i>
+    </button>
+
+    <!-- Modal Formulario (Crear/Editar) -->
+    <div id="modalOverlay" class="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-50 hidden flex-col justify-end sm:justify-center items-center transition-opacity opacity-0">
+        <!-- El panel emerge desde abajo en móviles, centrado en desktop -->
+        <div class="bg-white w-full sm:w-[500px] sm:rounded-2xl rounded-t-2xl shadow-2xl transform translate-y-full sm:translate-y-0 transition-transform duration-300 flex flex-col max-h-[90vh]">
+            
+            <div class="flex justify-between items-center p-4 sm:p-6 border-b border-gray-100">
+                <h3 id="modalTitle" class="text-xl font-bold text-gray-800">Nuevo Evento</h3>
+                <button id="btnCerrarModal" class="text-gray-400 hover:text-gray-600 bg-gray-100 hover:bg-gray-200 w-8 h-8 rounded-full flex items-center justify-center transition-colors">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            
+            <!-- overflow-y-auto por si el formulario es muy largo en pantallas pequeñas -->
+            <div class="p-4 sm:p-6 overflow-y-auto">
+                <form id="eventoForm" class="space-y-4">
+                    <input type="hidden" id="formId">
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Nombre / Cliente <span class="text-red-500">*</span></label>
+                        <input type="text" id="formNombre" required class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all bg-gray-50 focus:bg-white" placeholder="Ej. Boda Familia Pérez">
+                    </div>
+                    
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Tipo de Evento</label>
+                            <div class="relative">
+                                <select id="formTipo" class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all bg-gray-50 focus:bg-white appearance-none">
+                                    <option value="Boda">💍 Boda</option>
+                                    <option value="Cumpleaños">🎂 Cumpleaños</option>
+                                    <option value="Quinceañera">👑 Quinceañera</option>
+                                    <option value="Corporativo">💼 Corporativo</option>
+                                    <option value="Bautizo">🕊️ Bautizo</option>
+                                    <option value="Otro">✨ Otro</option>
+                                </select>
+                                <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-gray-500">
+                                    <i class="fas fa-chevron-down text-xs"></i>
+                                </div>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Fecha <span class="text-red-500">*</span></label>
+                            <input type="date" id="formFecha" required class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all bg-gray-50 focus:bg-white">
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Abono Inicial ($)</label>
+                        <div class="relative">
+                            <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                <span class="text-gray-500 font-medium">$</span>
+                            </div>
+                            <input type="number" id="formAbono" min="0" step="any" class="w-full pl-8 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all bg-gray-50 focus:bg-white" placeholder="0.00">
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Notas / Detalles</label>
+                        <textarea id="formNotas" rows="3" class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all bg-gray-50 focus:bg-white resize-none" placeholder="Dirección, requerimientos especiales..."></textarea>
+                    </div>
+
+                    <div class="pt-4 border-t border-gray-100 mt-6">
+                        <button type="submit" class="w-full bg-indigo-600 text-white font-bold py-3.5 px-4 rounded-xl hover:bg-indigo-700 focus:ring-4 focus:ring-indigo-300 transition-all shadow-md">
+                            Guardar Evento
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sistema de Notificaciones Toast -->
+    <div id="toast" class="fixed top-20 right-4 sm:top-auto sm:bottom-6 sm:right-6 transform translate-x-full sm:translate-y-10 sm:translate-x-0 opacity-0 transition-all duration-300 z-50 flex items-center p-4 rounded-xl shadow-lg text-white pointer-events-none max-w-[90vw]">
+        <div id="toastIcon" class="mr-3 text-xl flex-shrink-0"></div>
+        <div id="toastMessage" class="font-medium text-sm sm:text-base pr-2 truncate">Mensaje</div>
+    </div>
+
+    <!-- Script Principal (Lógica de Aplicación sin Firebase, puramente Local) -->
+    <script>
+        // --- 1. CONFIGURACIÓN DEL ALMACENAMIENTO LOCAL (IndexedDB) ---
+        // Usamos IndexedDB porque es más robusto que LocalStorage para guardar datos a largo plazo en móviles
+        
+        const DB_NAME = 'AlaiaEventosDB';
+        const DB_VERSION = 1;
+        const STORE_NAME = 'eventos';
+        let db;
+        let eventosMemoria = []; // Copia en memoria para renderizado rápido
+
+        // Inicializar base de datos
+        function initDB() {
+            return new Promise((resolve, reject) => {
+                const request = indexedDB.open(DB_NAME, DB_VERSION);
+
+                request.onerror = (event) => {
+                    console.error("Error al abrir IndexedDB:", event.target.error);
+                    // Fallback a LocalStorage si falla IndexedDB
+                    cargarDesdeLocalStorage();
+                    resolve();
+                };
+
+                request.onupgradeneeded = (event) => {
+                    const db = event.target.result;
+                    if (!db.objectStoreNames.contains(STORE_NAME)) {
+                        db.createObjectStore(STORE_NAME, { keyPath: 'id' });
+                    }
+                };
+
+                request.onsuccess = (event) => {
+                    db = event.target.result;
+                    cargarEventosDesdeDB().then(resolve);
+                };
+            });
+        }
+
+        // Cargar datos al iniciar
+        function cargarEventosDesdeDB() {
+            return new Promise((resolve) => {
+                const transaction = db.transaction([STORE_NAME], 'readonly');
+                const store = transaction.objectStore(STORE_NAME);
+                const request = store.getAll();
+
+                request.onsuccess = () => {
+                    eventosMemoria = request.result || [];
+                    // Ordenar por fecha (más próximos primero)
+                    eventosMemoria.sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
+                    renderizarEventos();
+                    resolve();
+                };
+            });
+        }
+
+        // Guardar o actualizar un evento en DB
+        function guardarEventoDB(evento) {
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction([STORE_NAME], 'readwrite');
+                const store = transaction.objectStore(STORE_NAME);
+                const request = store.put(evento);
+
+                request.onsuccess = () => {
+                    // Actualizar memoria
+                    const index = eventosMemoria.findIndex(e => e.id === evento.id);
+                    if (index > -1) {
+                        eventosMemoria[index] = evento;
+                    } else {
+                        eventosMemoria.push(evento);
+                    }
+                    eventosMemoria.sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
+                    renderizarEventos();
+                    resolve();
+                };
+                request.onerror = reject;
+            });
+        }
+
+        // Eliminar evento de DB
+        function eliminarEventoDB(id) {
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction([STORE_NAME], 'readwrite');
+                const store = transaction.objectStore(STORE_NAME);
+                const request = store.delete(id);
+
+                request.onsuccess = () => {
+                    eventosMemoria = eventosMemoria.filter(e => e.id !== id);
+                    renderizarEventos();
+                    resolve();
+                };
+                request.onerror = reject;
+            });
+        }
+
+        // --- Fallback Simple (LocalStorage) por si el navegador es viejo ---
+        function cargarDesdeLocalStorage() {
+            try {
+                const datos = localStorage.getItem('alaia_datos_backup');
+                if (datos) {
+                    eventosMemoria = JSON.parse(datos);
+                    eventosMemoria.sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
+                }
+            } catch(e) { console.error(e); }
+            renderizarEventos();
+        }
+        
+        function guardarBackupLocalStorage() {
+            try {
+                localStorage.setItem('alaia_datos_backup', JSON.stringify(eventosMemoria));
+            } catch(e) { console.error("No se pudo crear backup en LocalStorage"); }
+        }
+
+
+        // --- 2. LÓGICA DE LA INTERFAZ DE USUARIO ---
+
+        // Referencias al DOM
+        const btnNuevoEvento = document.getElementById('btnNuevoEvento');
+        const btnFab = document.getElementById('btnFab');
+        const btnExportar = document.getElementById('btnExportar');
+        const btnEmptyNuevo = document.getElementById('btnEmptyNuevo');
+        
+        const modalOverlay = document.getElementById('modalOverlay');
+        const modalPanel = modalOverlay.querySelector('div');
+        const btnCerrarModal = document.getElementById('btnCerrarModal');
+        const eventoForm = document.getElementById('eventoForm');
+        
+        const formId = document.getElementById('formId');
+        const formNombre = document.getElementById('formNombre');
+        const formTipo = document.getElementById('formTipo');
+        const formFecha = document.getElementById('formFecha');
+        const formAbono = document.getElementById('formAbono');
+        const formNotas = document.getElementById('formNotas');
+        const modalTitle = document.getElementById('modalTitle');
+        
+        const eventosContainer = document.getElementById('eventosContainer');
+        const emptyState = document.getElementById('emptyState');
+        const toast = document.getElementById('toast');
+
+        // Formateador de moneda
+        const formatearMoneda = (valor) => {
+            return new Intl.NumberFormat('es-CO', {
+                style: 'currency',
+                currency: 'COP',
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 0
+            }).format(valor);
+        };
+
+        // Formateador de fecha
+        const formatearFecha = (fechaStr) => {
+            const fecha = new Date(fechaStr + 'T00:00:00'); // Evitar problemas de zona horaria
+            return new Intl.DateTimeFormat('es-ES', {
+                weekday: 'short', 
+                day: 'numeric', 
+                month: 'short',
+                year: 'numeric'
+            }).format(fecha);
+        };
+
+        // Obtener color/icono según tipo
+        const obtenerEstiloTipo = (tipo) => {
+            const estilos = {
+                'Boda': { bg: 'bg-pink-100', text: 'text-pink-700', icon: '💍' },
+                'Cumpleaños': { bg: 'bg-yellow-100', text: 'text-yellow-700', icon: '🎂' },
+                'Quinceañera': { bg: 'bg-purple-100', text: 'text-purple-700', icon: '👑' },
+                'Corporativo': { bg: 'bg-blue-100', text: 'text-blue-700', icon: '💼' },
+                'Bautizo': { bg: 'bg-cyan-100', text: 'text-cyan-700', icon: '🕊️' },
+                'Otro': { bg: 'bg-gray-100', text: 'text-gray-700', icon: '✨' }
+            };
+            return estilos[tipo] || estilos['Otro'];
+        };
+
+        // --- Renderizar Vista ---
+        function actualizarEstadisticas() {
+            document.getElementById('statTotal').textContent = eventosMemoria.length;
+            const recaudo = eventosMemoria.reduce((sum, evento) => sum + (Number(evento.abono) || 0), 0);
+            document.getElementById('statRecaudo').textContent = formatearMoneda(recaudo);
+        }
+
+        function renderizarEventos() {
+            guardarBackupLocalStorage(); // Siempre mantenemos un backup tonto
+            actualizarEstadisticas();
+
+            if (eventosMemoria.length === 0) {
+                eventosContainer.classList.add('hidden');
+                emptyState.classList.remove('hidden');
+                emptyState.classList.add('flex');
+            } else {
+                emptyState.classList.add('hidden');
+                emptyState.classList.remove('flex');
+                eventosContainer.classList.remove('hidden');
+                
+                eventosContainer.innerHTML = eventosMemoria.map(evento => {
+                    const estilo = obtenerEstiloTipo(evento.tipo);
+                    
+                    return `
+                        <div class="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 hover:shadow-md transition-shadow relative overflow-hidden group">
+                            <!-- Decoración superior color -->
+                            <div class="absolute top-0 left-0 w-full h-1 ${estilo.bg.replace('100', '400')}"></div>
+                            
+                            <div class="flex justify-between items-start mb-3 mt-1">
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${estilo.bg} ${estilo.text}">
+                                    <span class="mr-1">${estilo.icon}</span> ${evento.tipo}
+                                </span>
+                                
+                                <div class="flex space-x-1 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                                    <button onclick="editarEvento('${evento.id}')" class="p-1.5 text-blue-500 hover:bg-blue-50 rounded-lg transition-colors" title="Editar">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <button onclick="eliminarEvento('${evento.id}')" class="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Eliminar">
+                                        <i class="fas fa-trash-alt"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <h3 class="text-lg font-bold text-gray-900 mb-1 truncate">${evento.nombre}</h3>
+                            
+                            <div class="flex items-center text-gray-500 text-sm mb-3">
+                                <i class="far fa-calendar-alt w-5"></i>
+                                <span class="capitalize">${formatearFecha(evento.fecha)}</span>
+                            </div>
+                            
+                            <div class="bg-gray-50 rounded-xl p-3 mb-3">
+                                <p class="text-xs text-gray-500 uppercase font-semibold mb-1">Abono Inicial</p>
+                                <p class="text-indigo-700 font-bold text-lg">${formatearMoneda(evento.abono)}</p>
+                            </div>
+                            
+                            ${evento.notas ? `
+                                <div class="text-sm text-gray-600 bg-yellow-50/50 p-2 rounded-lg border border-yellow-100 line-clamp-2" title="${evento.notas}">
+                                    <i class="fas fa-info-circle text-yellow-500 mr-1 text-xs"></i> 
+                                    ${evento.notas}
+                                </div>
+                            ` : ''}
+                        </div>
+                    `;
+                }).join('');
+            }
+        }
+
+        // --- Interacciones (Modal, Toast, CRUD) ---
+
+        function mostrarToast(mensaje, tipo = 'success') {
+            const icon = tipo === 'success' ? '<i class="fas fa-check-circle text-green-400"></i>' : '<i class="fas fa-exclamation-circle text-red-400"></i>';
+            const bgClass = tipo === 'success' ? 'bg-gray-900' : 'bg-red-900';
+            
+            toast.className = `fixed top-20 right-4 sm:top-auto sm:bottom-6 sm:right-6 opacity-0 transition-all duration-300 z-[70] flex items-center p-4 rounded-xl shadow-xl text-white pointer-events-none max-w-[90vw] ${bgClass}`;
+            toastIcon.innerHTML = icon;
+            toastMessage.textContent = mensaje;
+            
+            // Mostrar
+            setTimeout(() => {
+                toast.classList.remove('opacity-0', 'translate-x-full', 'sm:translate-y-10');
+            }, 10);
+            
+            // Ocultar
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'translate-x-full', 'sm:translate-y-10');
+            }, 3000);
+        }
+
+        function abrirModal(modo = 'nuevo', id = null) {
+            // Reset y preparar
+            eventoForm.reset();
+            formId.value = '';
+            
+            if (modo === 'editar' && id) {
+                modalTitle.textContent = 'Editar Evento';
+                const evento = eventosMemoria.find(e => e.id === id);
+                if (evento) {
+                    formId.value = evento.id;
+                    formNombre.value = evento.nombre;
+                    formTipo.value = evento.tipo;
+                    formFecha.value = evento.fecha;
+                    formAbono.value = evento.abono;
+                    formNotas.value = evento.notas || '';
+                }
+            } else {
+                modalTitle.textContent = 'Nuevo Evento';
+                // Fecha por defecto hoy
+                const hoy = new Date().toISOString().split('T')[0];
+                formFecha.value = hoy;
+            }
+            
+            // Mostrar modal
+            modalOverlay.classList.remove('hidden');
+            modalOverlay.classList.add('flex');
+            
+            // Animación de entrada
+            setTimeout(() => {
+                modalOverlay.classList.remove('opacity-0');
+                modalPanel.classList.remove('translate-y-full'); // Móvil
+                modalPanel.classList.remove('sm:scale-95'); // Desktop
+            }, 10);
+        }
+
+        function cerrarModal() {
+            // Animación de salida
+            modalOverlay.classList.add('opacity-0');
+            modalPanel.classList.add('translate-y-full');
+            modalPanel.classList.add('sm:scale-95');
+            
+            setTimeout(() => {
+                modalOverlay.classList.add('hidden');
+                modalOverlay.classList.remove('flex');
+            }, 300); // Esperar CSS transition
+        }
+
+        // Funciones Globales para los Onclick
+        window.editarEvento = (id) => abrirModal('editar', id);
+        
+        window.eliminarEvento = (id) => {
+            const customConfirm = document.createElement('div');
+            customConfirm.className = 'fixed inset-0 bg-gray-900/60 backdrop-blur-sm flex items-center justify-center z-[80] p-4 opacity-0 transition-opacity';
+            customConfirm.innerHTML = `
+                <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 text-center transform scale-95 transition-transform">
+                    <div class="mx-auto flex items-center justify-center w-14 h-14 rounded-full bg-red-100 mb-4">
+                        <i class="fas fa-trash text-red-600 text-2xl"></i>
+                    </div>
+                    <h3 class="text-xl font-bold text-gray-900 mb-2">¿Eliminar evento?</h3>
+                    <p class="text-gray-500 mb-6 text-sm">Esta acción no se puede deshacer.</p>
+                    <div class="flex space-x-3">
+                        <button id="btnCancelDelete" class="flex-1 py-3 bg-gray-100 text-gray-700 rounded-xl font-medium hover:bg-gray-200 transition">Cancelar</button>
+                        <button id="btnConfirmDelete" class="flex-1 py-3 bg-red-600 text-white rounded-xl font-medium hover:bg-red-700 transition shadow-md">Eliminar</button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(customConfirm);
+            
+            // Animar entrada
+            setTimeout(() => {
+                customConfirm.classList.remove('opacity-0');
+                customConfirm.querySelector('div').classList.remove('scale-95');
+            }, 10);
+
+            const cerrarConfirm = () => {
+                customConfirm.classList.add('opacity-0');
+                setTimeout(() => document.body.removeChild(customConfirm), 200);
+            };
+
+            document.getElementById('btnCancelDelete').addEventListener('click', cerrarConfirm);
+
+            document.getElementById('btnConfirmDelete').addEventListener('click', async () => {
+                cerrarConfirm();
+                if (db) {
+                    await eliminarEventoDB(id);
+                } else {
+                    // Fallback
+                    eventosMemoria = eventosMemoria.filter(e => e.id !== id);
+                    renderizarEventos();
+                }
+                mostrarToast('Evento eliminado exitosamente');
+            });
+        };
+
+        // --- Event Listeners ---
+        
+        // Guardar Formulario
+        eventoForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const btnSubmit = eventoForm.querySelector('button[type="submit"]');
+            const originalText = btnSubmit.innerHTML;
+            btnSubmit.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Guardando...';
+            btnSubmit.disabled = true;
+
+            const datosEvento = {
+                id: formId.value || 'evt_' + Date.now().toString(36) + Math.random().toString(36).substr(2),
+                nombre: formNombre.value.trim(),
+                tipo: formTipo.value,
+                fecha: formFecha.value,
+                abono: parseFloat(formAbono.value) || 0,
+                notas: formNotas.value.trim(),
+                fechaCreacion: formId.value ? undefined : new Date().toISOString()
+            };
+
+            try {
+                if (db) {
+                    await guardarEventoDB(datosEvento);
+                } else {
+                    // Fallback directo a memoria
+                    const index = eventosMemoria.findIndex(e => e.id === datosEvento.id);
+                    if (index > -1) eventosMemoria[index] = datosEvento;
+                    else eventosMemoria.push(datosEvento);
+                    renderizarEventos();
+                }
+                cerrarModal();
+                mostrarToast('Evento guardado correctamente');
+            } catch (error) {
+                console.error("Error al guardar:", error);
+                mostrarToast('Error al guardar', 'error');
+            } finally {
+                btnSubmit.innerHTML = originalText;
+                btnSubmit.disabled = false;
+            }
+        });
+
+        // Botones de Abrir Modal
+        btnNuevoEvento.addEventListener('click', () => abrirModal('nuevo'));
+        btnFab.addEventListener('click', () => abrirModal('nuevo'));
+        btnEmptyNuevo.addEventListener('click', () => abrirModal('nuevo'));
+        
+        // Cerrar Modal
+        btnCerrarModal.addEventListener('click', cerrarModal);
+        modalOverlay.addEventListener('click', (e) => {
+            if (e.target === modalOverlay) cerrarModal();
+        });
+
+        // Exportar a Excel (CSV)
+        btnExportar.addEventListener('click', () => {
+            if (eventosMemoria.length === 0) {
+                mostrarToast('No hay eventos para exportar', 'error');
+                return;
+            }
+            
+            let csvContent = "data:text/csv;charset=utf-8,";
+            // Encabezados
+            csvContent += "Nombre del Evento,Tipo,Fecha,Abono,Notas\n";
+            
+            // Datos
+            eventosMemoria.forEach(evento => {
+                const nombre = `"${evento.nombre.replace(/"/g, '""')}"`;
+                const tipo = evento.tipo;
+                const fecha = evento.fecha;
+                const abono = evento.abono;
+                const notas = evento.notas ? `"${evento.notas.replace(/"/g, '""')}"` : "";
+                
+                csvContent += `${nombre},${tipo},${fecha},${abono},${notas}\n`;
+            });
+            
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            
+            // Fecha para el nombre del archivo
+            const fechaHoy = new Date().toISOString().split('T')[0];
+            link.setAttribute("download", `Alaia_Eventos_${fechaHoy}.csv`);
+            
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            mostrarToast('Archivo descargado. Ábrelo en Excel.');
+        });
+
+        // --- ARRANQUE DE LA APLICACIÓN ---
+        window.addEventListener('DOMContentLoaded', () => {
+            initDB().then(() => {
+                console.log("App Lista - Datos locales cargados");
+            });
+        });
+
+    </script>
+</body>
+</html>
