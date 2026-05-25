@@ -43,8 +43,19 @@
     </header>
 
     <!-- Main Content -->
-    <main class="flex-1 overflow-y-auto p-4 md:p-6 w-full max-w-7xl mx-auto pb-24">
+    <main class="flex-1 overflow-y-auto p-4 md:p-6 w-full max-w-7xl mx-auto pb-24 relative">
         
+        <!-- Alerta de Falta de Configuración -->
+        <div id="alertaConfig" class="hidden bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-6 rounded-r-lg shadow-sm">
+            <div class="flex items-start">
+                <i class="fas fa-exclamation-triangle text-xl mr-3 mt-0.5"></i>
+                <div>
+                    <h3 class="font-bold text-lg">Falta configurar la Base de Datos</h3>
+                    <p class="text-sm mt-1">La aplicación no puede guardar datos porque faltan las claves de Firebase. Por favor, edita el archivo <code class="bg-red-200 px-1 rounded">index.html</code> en GitHub y reemplaza los textos <strong>"PEGA_AQUI..."</strong> con las llaves que te da Google Firebase.</p>
+                </div>
+            </div>
+        </div>
+
         <!-- Empty State -->
         <div id="emptyState" class="hidden h-full flex-col items-center justify-center text-center px-4">
             <div class="w-24 h-24 bg-indigo-100 rounded-full flex items-center justify-center mb-4">
@@ -146,33 +157,52 @@
         import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // --- 1. CONFIGURACIÓN DE FIREBASE ---
-        // Estos son datos de prueba. Más abajo te explico cómo poner los tuyos gratis.
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
-            apiKey: "TU_API_KEY",
-            authDomain: "tu-proyecto.firebaseapp.com",
-            projectId: "tu-proyecto",
-            storageBucket: "tu-proyecto.appspot.com",
-            messagingSenderId: "TU_SENDER_ID",
-            appId: "TU_APP_ID"
+        // =======================================================================================
+        // 🛑🛑 ¡AQUÍ VAN TUS LLAVES DE FIREBASE! 🛑🛑
+        // Reemplaza los textos que dicen "PEGA_AQUI..." con las llaves que te da Google Firebase
+        // =======================================================================================
+        const misClavesDeFirebase = {
+              apiKey: "AIzaSyCFs5r-ddfnwm70GLrF2b2lhVAtWzd52ik",
+  authDomain: "alaia-app-27691.firebaseapp.com",
+  projectId: "alaia-app-27691",
+  storageBucket: "alaia-app-27691.firebasestorage.app",
+  messagingSenderId: "419868524301",
+  appId: "1:419868524301:web:38ceff6e28b327d6867a44"
         };
+        // =======================================================================================
+
         
+        // Lógica para detectar si estás en la vista previa o en tu propio GitHub
+        const isPreview = typeof __firebase_config !== 'undefined';
+        const firebaseConfig = isPreview ? JSON.parse(__firebase_config) : misClavesDeFirebase;
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'alaia-eventos-shared';
         
         let app, auth, db;
-        try {
-            app = initializeApp(firebaseConfig);
-            auth = getAuth(app);
-            db = getFirestore(app);
-        } catch (e) {
-            console.error("Error inicializando Firebase:", e);
-        }
-
         let currentUser = null;
         let eventosMemoria = []; 
 
+        // Verificar si el usuario ya puso sus claves
+        const faltaConfigurar = !isPreview && misClavesDeFirebase.apiKey === "PEGA_AQUI_TU_API_KEY";
+
+        if (faltaConfigurar) {
+            // Mostrar alerta visual si no se ha configurado
+            document.getElementById('loadingState').classList.add('hidden');
+            document.getElementById('alertaConfig').classList.remove('hidden');
+        } else {
+            // Inicializar Firebase normalmente
+            try {
+                app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+                db = getFirestore(app);
+                initAuth();
+            } catch (e) {
+                console.error("Error inicializando Firebase:", e);
+                mostrarToast("Error de conexión. Revisa tus claves.", "error");
+            }
+        }
+
         // --- 2. AUTENTICACIÓN AUTOMÁTICA ---
-        const initAuth = async () => {
+        async function initAuth() {
             if (!auth) return;
             try {
                 if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
@@ -183,10 +213,9 @@
             } catch (error) {
                 console.error("Error en autenticación:", error);
             }
-        };
+        }
 
-        if (auth) {
-            initAuth();
+        if (auth && !faltaConfigurar) {
             onAuthStateChanged(auth, (user) => {
                 currentUser = user;
                 if (user) {
@@ -305,6 +334,11 @@
         }
 
         function abrirModal(modo = 'nuevo', id = null) {
+            if (faltaConfigurar) {
+                mostrarToast('Primero configura tus claves de Firebase en el código', 'error');
+                return;
+            }
+
             eventoForm.reset();
             document.getElementById('formId').value = '';
             
@@ -386,7 +420,7 @@
 
         // --- EXPORTAR A EXCEL ---
         document.getElementById('btnExportar').addEventListener('click', () => {
-            if (eventosMemoria.length === 0) return mostrarToast('No hay eventos', 'error');
+            if (eventosMemoria.length === 0) return mostrarToast('No hay eventos para exportar', 'error');
             let csv = "data:text/csv;charset=utf-8,Fecha,Cliente/Nombre,Tipo,Abono,Notas\n";
             eventosMemoria.forEach(e => {
                 csv += `${e.fecha},"${e.nombre}","${e.tipo}",${e.abono},"${(e.notas||'').replace(/\n/g, ' ')}"\n`;
